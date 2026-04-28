@@ -4,7 +4,7 @@ from flask import Flask, request
 from telegram import Bot, Update
 from telegram.ext import Dispatcher, CommandHandler
 
-🔐 ENV
+#🔐 ENV
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -13,7 +13,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 bot = Bot(token=BOT_TOKEN)
 app = Flask(name)
 
-🗄️ DB
+#🗄️ DB
 
 conn = sqlite3.connect("messages.db", check_same_thread=False)
 cur = conn.cursor()
@@ -29,7 +29,7 @@ forwarded INTEGER DEFAULT 0
 """)
 conn.commit()
 
-📩 User → Admin
+#📩 User → Admin
 
 def message_admin(update, context):
 user = update.effective_user
@@ -59,7 +59,7 @@ try:
 except:
     pass
 
-🔁 Retry unsent on start
+#🔁 Retry unsent on start
 
 def resend_unsent():
 cur.execute("SELECT id, user_id, username, message FROM messages WHERE forwarded=0")
@@ -75,7 +75,7 @@ for msg_id, user_id, username, msg in rows:
     except:
         pass
 
-🔁 Admin → User
+#🔁 Admin → User
 
 def reply_user(update, context):
 if update.effective_user.id != ADMIN_ID:
@@ -94,13 +94,13 @@ try:
 except Exception as e:
     update.message.reply_text(f"Error: {e}")
 
-🤖 Dispatcher
+#🤖 Dispatcher
 
 dispatcher = Dispatcher(bot, None, workers=0)
 dispatcher.add_handler(CommandHandler("message_admin", message_admin))
 dispatcher.add_handler(CommandHandler("reply", reply_user))
 
-🌐 Webhook
+#🌐 Webhook
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -108,13 +108,13 @@ update = Update.de_json(request.get_json(force=True), bot)
 dispatcher.process_update(update)
 return "ok"
 
-❤️ Health route (uptime)
+#❤️ Health route (uptime)
 
 @app.route("/")
 def home():
 return "Bot is alive"
 
-🚀 Startup
+#🚀 Startup
 
 if name == "main":
 bot.set_webhook(WEBHOOK_URL)
