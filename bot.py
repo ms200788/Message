@@ -3,7 +3,7 @@ import logging
 from queue import Queue
 
 from flask import Flask, request
-from telegram import Bot, Update
+from telegram import Bot, Update, ParseMode
 from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
 
 
@@ -77,7 +77,18 @@ def message_admin(update, context):
     processed_messages.add(msg.message_id)
 
     user = msg.from_user
-    username = user.username if user.username else "NoUsername"
+
+    # ===== USER DISPLAY LOGIC =====
+    first_name = user.first_name or ""
+    last_name = user.last_name or ""
+    full_name = (first_name + " " + last_name).strip()
+
+    if user.username:
+        # clickable username
+        user_display = f"@{user.username}"
+    else:
+        # clickable name using tg link
+        user_display = f"<a href='tg://user?id={user.id}'>{full_name}</a>"
 
     text = msg.text.replace("/message_admin", "").strip()
 
@@ -86,12 +97,17 @@ def message_admin(update, context):
         return
 
     forward_text = (
-        f"👤 User: @{username}\n"
-        f"🆔 ID: {user.id}\n\n"
+        f"👤 User: {user_display}\n"
+        f"🆔 ID: <code>{user.id}</code>\n\n"
         f"💬 Message:\n{text}"
     )
 
-    context.bot.send_message(chat_id=ADMIN_ID, text=forward_text)
+    context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=forward_text,
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True
+    )
 
     msg.reply_text("✅ Message sent to admin!")
 
@@ -128,7 +144,6 @@ dispatcher.add_handler(CommandHandler("start", start))
 dispatcher.add_handler(CommandHandler("message_admin", message_admin))
 dispatcher.add_handler(CommandHandler("reply", reply))
 
-# Any normal message → goes to admin
 dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, message_admin))
 
 
