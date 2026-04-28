@@ -1,123 +1,190 @@
 import os
 import logging
+from queue import Queue
+
 from flask import Flask, request
 from telegram import Bot, Update
 from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
 
 
+# =========================
+# LOGGING
+# =========================
 
 logging.basicConfig(
-format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
 )
 
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 
+# =========================
+# ENV VARIABLES
+# =========================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 if not BOT_TOKEN or not ADMIN_ID or not WEBHOOK_URL:
-raise Exception("Missing ENV variables")
+
+    raise Exception("Missing ENV variables")
 
 ADMIN_ID = int(ADMIN_ID)
 
 
+# =========================
+# INIT APP + BOT
+# =========================
 
-app = Flask(name)
-
-
+app = Flask(__name__)
 
 bot = Bot(token=BOT_TOKEN)
-dispatcher = Dispatcher(bot, None, use_context=True)
 
-Temporary memory (prevents duplicate sends)
+update_queue = Queue()
+
+dispatcher = Dispatcher(bot, update_queue, use_context=True)
+
+
+# =========================
+# TEMP MEMORY (ANTI DUPLICATE)
+# =========================
 
 processed_messages = set()
 
 
+# =========================
+# COMMANDS
+# =========================
 
 def start(update, context):
-update.message.reply_text("✅ Bot is running!")
+
+    update.message.reply_text("✅ Bot is running!")
+
 
 def message_admin(update, context):
-msg = update.message
 
-# prevent duplicate messages
-if msg.message_id in processed_messages:
-    return
+    msg = update.message
 
-processed_messages.add(msg.message_id)
+    if not msg or not msg.text:
+        return
 
-user = msg.from_user
-text = msg.text.replace("/message_admin", "").strip()
+    # prevent duplicate messages
+    if msg.message_id in processed_messages:
+        return
 
-if not text:
-    msg.reply_text("Send message like:\n/message_admin your text")
-    return
+    processed_messages.add(msg.message_id)
 
-forward_text = (
-    f"👤 User: @{user.username}\n"
-    f"🆔 ID: {user.id}\n\n"
-    f"💬 Message:\n{text}"
-)
+    user = msg.from_user
+    username = user.username if user.username else "NoUsername"
 
-context.bot.send_message(chat_id=ADMIN_ID, text=forward_text)
-msg.reply_text("✅ Message sent to admin!")
+    text = msg.text.replace("/message_admin", "").strip()
+
+    if not text:
+        msg.reply_text("Send message like:\n/message_admin your text")
+        return
+
+    forward_text = (
+        f"👤 User: @{username}\n"
+        f"🆔 ID: {user.id}\n\n"
+        f"💬 Message:\n{text}"
+    )
+
+    context.bot.send_message(chat_id=ADMIN_ID, text=forward_text)
+
+    msg.reply_text("✅ Message sent to admin!")
+
 
 def reply(update, context):
-if update.message.from_user.id != ADMIN_ID:
-return
 
-args = context.args
+    if update.message.from_user.id != ADMIN_ID:
+        return
 
-if len(args) < 2:
-    update.message.reply_text("Usage:\n/reply user_id message")
-    return
+    args = context.args
 
-try:
-    user_id = int(args[0])
-except:
-    update.message.reply_text("Invalid user ID")
-    return
+    if len(args) < 2:
+        update.message.reply_text("Usage:\n/reply user_id message")
+        return
 
-text = " ".join(args[1:])
+    try:
+        user_id = int(args[0])
+    except:
+        update.message.reply_text("Invalid user ID")
+        return
 
-context.bot.send_message(chat_id=user_id, text=text)
-update.message.reply_text("✅ Reply sent!")
+    text = " ".join(args[1:])
+
+    context.bot.send_message(chat_id=user_id, text=text)
+
+    update.message.reply_text("✅ Reply sent!")
 
 
+# =========================
+# HANDLERS
+# =========================
 
 dispatcher.add_handler(CommandHandler("start", start))
 dispatcher.add_handler(CommandHandler("message_admin", message_admin))
 dispatcher.add_handler(CommandHandler("reply", reply))
+
+# Any normal message → goes to admin
 dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, message_admin))
 
 
+# =========================
+# ROUTES
+# =========================
 
 @app.route("/")
 def home():
-return "🚀 Bot is running!"
+
+    return "🚀 Bot is running!"
+
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
-try:
-data = request.get_json(force=True)
-update = Update.de_json(data, bot)
-dispatcher.process_update(update)
-except Exception as e:
-logger.error(f"Error processing update: {e}")
-return "ok"
+
+    try:
+
+        data = request.get_json(force=True)
+
+        update = Update.de_json(data, bot)
+
+        dispatcher.process_update(update)
+
+    except Exception as e:
+
+        logger.error(f"Error processing update: {e}")
+
+    return "ok"
 
 
+# =========================
+# SET WEBHOOK
+# =========================
 
 @app.before_first_request
 def setup_webhook():
-try:
-webhook_url = f"{WEBHOOK_URL}/{BOT_TOKEN}"
-bot.set_webhook(webhook_url)
-logger.info(f"Webhook set to: {webhook_url}")
-except Exception as e:
-logger.error(f"Webhook setup failed: {e}")
+
+    try:
+
+        webhook_url = f"{WEBHOOK_URL}/{BOT_TOKEN}"
+
+        bot.delete_webhook()
+        bot.set_webhook(webhook_url)
+
+        logger.info(f"Webhook set to: {webhook_url}")
+
+    except Exception as e:
+
+        logger.error(f"Webhook setup failed: {e}")
+
+
+# =========================
+# LOCAL RUN
+# =========================
+
+if __name__ == "__main__":
+
+    app.run(host="0.0.0.0", port=10000)
