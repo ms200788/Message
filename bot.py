@@ -1,121 +1,61 @@
 import os
-import sqlite3
 from flask import Flask, request
 from telegram import Bot, Update
-from telegram.ext import Dispatcher, CommandHandler
-
-#🔐 ENV
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-bot = Bot(token=BOT_TOKEN)
 app = Flask(name)
+bot = Bot(token=BOT_TOKEN)
+dispatcher = Dispatcher(bot, None, use_context=True)
 
-#🗄️ DB
+-------- Handlers --------
 
-conn = sqlite3.connect("messages.db", check_same_thread=False)
-cur = conn.cursor()
-
-cur.execute("""
-CREATE TABLE IF NOT EXISTS messages (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-user_id INTEGER,
-username TEXT,
-message TEXT,
-forwarded INTEGER DEFAULT 0
-)
-""")
-conn.commit()
-
-#📩 User → Admin
+def start(update, context):
+update.message.reply_text("Bot is running!")
 
 def message_admin(update, context):
-user = update.effective_user
+user = update.message.from_user
+text = update.message.text.replace("/message_admin", "").strip()
 
-if not context.args:
-    update.message.reply_text("Usage: /message_admin <message>")
-    return
+msg = f"👤 @{user.username}\n🆔 {user.id}\n\n💬 {text}"
+context.bot.send_message(chat_id=ADMIN_ID, text=msg)
 
-msg = " ".join(context.args)
-username = user.username or "No username"
-
-# Save
-cur.execute(
-    "INSERT INTO messages (user_id, username, message, forwarded) VALUES (?, ?, ?, 0)",
-    (user.id, username, msg)
-)
-conn.commit()
-
-update.message.reply_text("Message saved!")
-
-try:
-    text = f"Username: @{username}\nID: {user.id}\n\nMessage: {msg}"
-    bot.send_message(chat_id=ADMIN_ID, text=text)
-
-    cur.execute("UPDATE messages SET forwarded=1 WHERE user_id=? AND message=?", (user.id, msg))
-    conn.commit()
-except:
-    pass
-
-#🔁 Retry unsent on start
-
-def resend_unsent():
-cur.execute("SELECT id, user_id, username, message FROM messages WHERE forwarded=0")
-rows = cur.fetchall()
-
-for msg_id, user_id, username, msg in rows:
-    try:
-        text = f"Username: @{username}\nID: {user_id}\n\nMessage: {msg}"
-        bot.send_message(chat_id=ADMIN_ID, text=text)
-
-        cur.execute("UPDATE messages SET forwarded=1 WHERE id=?", (msg_id,))
-        conn.commit()
-    except:
-        pass
-
-#🔁 Admin → User
-
-def reply_user(update, context):
-if update.effective_user.id != ADMIN_ID:
+def reply(update, context):
+if str(update.message.from_user.id) != str(ADMIN_ID):
 return
 
-if len(context.args) < 2:
-    update.message.reply_text("Usage: /reply <user_id> <message>")
+args = context.args
+if len(args) < 2:
+    update.message.reply_text("Usage: /reply user_id message")
     return
 
-user_id = int(context.args[0])
-msg = " ".join(context.args[1:])
+user_id = int(args[0])
+text = " ".join(args[1:])
 
-try:
-    bot.send_message(chat_id=user_id, text=f"Admin: {msg}")
-    update.message.reply_text("Sent ✅")
-except Exception as e:
-    update.message.reply_text(f"Error: {e}")
+context.bot.send_message(chat_id=user_id, text=text)
 
-#🤖 Dispatcher
-
-dispatcher = Dispatcher(bot, None, workers=0)
+dispatcher.add_handler(CommandHandler("start", start))
 dispatcher.add_handler(CommandHandler("message_admin", message_admin))
-dispatcher.add_handler(CommandHandler("reply", reply_user))
+dispatcher.add_handler(CommandHandler("reply", reply))
+dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, message_admin))
 
-#🌐 Webhook
+-------- Flask routes --------
 
-@app.route("/webhook", methods=["POST"])
+@app.route("/")
+def home():
+return "Bot running!"
+
+@app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
 update = Update.de_json(request.get_json(force=True), bot)
 dispatcher.process_update(update)
 return "ok"
 
-#❤️ Health route (uptime)
+-------- Setup webhook --------
 
-@app.route("/")
-def home():
-return "Bot is alive"
-
-#🚀 Startup
-
-if name == "main":
-bot.set_webhook(WEBHOOK_URL)
-resend_unsent()
+@app.before_first_request
+def setup():
+bot.set_webhook(f"{WEBHOOK_URL}/{BOT_TOKEN}")
