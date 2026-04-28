@@ -25,7 +25,6 @@ Expose port
 
 EXPOSE 10000
 
+Start app
 
-Start Flask via gunicorn
-
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "1", "--threads", "2", "bot:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "1", "bot:app"]
