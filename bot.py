@@ -11,7 +11,6 @@ app = Flask(name)
 bot = Bot(token=BOT_TOKEN)
 dispatcher = Dispatcher(bot, None, use_context=True)
 
--------- Handlers --------
 
 def start(update, context):
 update.message.reply_text("Bot is running!")
@@ -42,7 +41,6 @@ dispatcher.add_handler(CommandHandler("message_admin", message_admin))
 dispatcher.add_handler(CommandHandler("reply", reply))
 dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, message_admin))
 
--------- Flask routes --------
 
 @app.route("/")
 def home():
@@ -54,7 +52,6 @@ update = Update.de_json(request.get_json(force=True), bot)
 dispatcher.process_update(update)
 return "ok"
 
--------- Setup webhook --------
 
 @app.before_first_request
 def setup():
