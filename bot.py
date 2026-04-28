@@ -1,130 +1,121 @@
 import os
 import sqlite3
 from flask import Flask, request
-from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Bot, Update
+from telegram.ext import Dispatcher, CommandHandler
 
-# 🔐 ENV variables
+🔐 ENV
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-app = Flask(__name__)
 bot = Bot(token=BOT_TOKEN)
+app = Flask(name)
 
-# 🗄️ DB setup
+🗄️ DB
+
 conn = sqlite3.connect("messages.db", check_same_thread=False)
 cur = conn.cursor()
 
 cur.execute("""
 CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    username TEXT,
-    message TEXT,
-    forwarded INTEGER DEFAULT 0
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+user_id INTEGER,
+username TEXT,
+message TEXT,
+forwarded INTEGER DEFAULT 0
 )
 """)
 conn.commit()
 
+📩 User → Admin
 
-# 📩 User → Admin
-async def message_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+def message_admin(update, context):
+user = update.effective_user
 
-    if not context.args:
-        await update.message.reply_text("Usage: /message_admin <message>")
-        return
+if not context.args:
+    update.message.reply_text("Usage: /message_admin <message>")
+    return
 
-    msg = " ".join(context.args)
-    username = user.username or "No username"
+msg = " ".join(context.args)
+username = user.username or "No username"
 
-    # Save
-    cur.execute(
-        "INSERT INTO messages (user_id, username, message, forwarded) VALUES (?, ?, ?, 0)",
-        (user.id, username, msg)
-    )
+# Save
+cur.execute(
+    "INSERT INTO messages (user_id, username, message, forwarded) VALUES (?, ?, ?, 0)",
+    (user.id, username, msg)
+)
+conn.commit()
+
+update.message.reply_text("Message saved!")
+
+try:
+    text = f"Username: @{username}\nID: {user.id}\n\nMessage: {msg}"
+    bot.send_message(chat_id=ADMIN_ID, text=text)
+
+    cur.execute("UPDATE messages SET forwarded=1 WHERE user_id=? AND message=?", (user.id, msg))
     conn.commit()
+except:
+    pass
 
-    await update.message.reply_text("Message saved!")
+🔁 Retry unsent on start
 
-    # Try sending
+def resend_unsent():
+cur.execute("SELECT id, user_id, username, message FROM messages WHERE forwarded=0")
+rows = cur.fetchall()
+
+for msg_id, user_id, username, msg in rows:
     try:
-        text = f"Username: @{username}\nID: {user.id}\n\nMessage: {msg}"
-        await context.bot.send_message(chat_id=ADMIN_ID, text=text)
+        text = f"Username: @{username}\nID: {user_id}\n\nMessage: {msg}"
+        bot.send_message(chat_id=ADMIN_ID, text=text)
 
-        cur.execute("UPDATE messages SET forwarded=1 WHERE user_id=? AND message=?", (user.id, msg))
+        cur.execute("UPDATE messages SET forwarded=1 WHERE id=?", (msg_id,))
         conn.commit()
-
     except:
         pass
 
+🔁 Admin → User
 
-# 🔁 Retry unsent
-async def resend_unsent(app):
-    cur.execute("SELECT id, user_id, username, message FROM messages WHERE forwarded=0")
-    rows = cur.fetchall()
+def reply_user(update, context):
+if update.effective_user.id != ADMIN_ID:
+return
 
-    for msg_id, user_id, username, msg in rows:
-        try:
-            text = f"Username: @{username}\nID: {user_id}\n\nMessage: {msg}"
-            await app.bot.send_message(chat_id=ADMIN_ID, text=text)
+if len(context.args) < 2:
+    update.message.reply_text("Usage: /reply <user_id> <message>")
+    return
 
-            cur.execute("UPDATE messages SET forwarded=1 WHERE id=?", (msg_id,))
-            conn.commit()
-        except:
-            pass
+user_id = int(context.args[0])
+msg = " ".join(context.args[1:])
 
+try:
+    bot.send_message(chat_id=user_id, text=f"Admin: {msg}")
+    update.message.reply_text("Sent ✅")
+except Exception as e:
+    update.message.reply_text(f"Error: {e}")
 
-# 🔁 Admin reply
-async def reply_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
+🤖 Dispatcher
 
-    if len(context.args) < 2:
-        await update.message.reply_text("Usage: /reply <user_id> <message>")
-        return
+dispatcher = Dispatcher(bot, None, workers=0)
+dispatcher.add_handler(CommandHandler("message_admin", message_admin))
+dispatcher.add_handler(CommandHandler("reply", reply_user))
 
-    user_id = int(context.args[0])
-    msg = " ".join(context.args[1:])
+🌐 Webhook
 
-    try:
-        await context.bot.send_message(chat_id=user_id, text=f"Admin: {msg}")
-        await update.message.reply_text("Sent ✅")
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-
-
-# 🤖 Telegram app
-application = ApplicationBuilder().token(BOT_TOKEN).build()
-application.add_handler(CommandHandler("message_admin", message_admin))
-application.add_handler(CommandHandler("reply", reply_user))
-
-
-# 🌐 Webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    application.update_queue.put_nowait(update)
-    return "ok"
+update = Update.de_json(request.get_json(force=True), bot)
+dispatcher.process_update(update)
+return "ok"
 
+❤️ Health route (uptime)
 
-# ❤️ Health check
 @app.route("/")
 def home():
-    return "Bot is alive"
+return "Bot is alive"
 
+🚀 Startup
 
-# 🚀 Start
-if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        await application.initialize()
-        await application.bot.set_webhook(WEBHOOK_URL)
-
-        await resend_unsent(application)
-        await application.start()
-
-    asyncio.run(main())
-    app.run(host="0.0.0.0", port=10000)
+if name == "main":
+bot.set_webhook(WEBHOOK_URL)
+resend_unsent()
