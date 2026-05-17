@@ -60,7 +60,221 @@ processed_messages = set()
 
 def start(update, context):
 
-    update.message.reply_text("✅ Bot is running!")
+    update.message.reply_text("<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Page</title>
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:Arial, sans-serif;
+    }
+
+    body{
+      background:black;
+      color:white;
+      min-height:100vh;
+      overflow-x:hidden;
+      position:relative;
+    }
+
+    /* Twinkling Stars */
+    .stars{
+      position:fixed;
+      width:100%;
+      height:100%;
+      top:0;
+      left:0;
+      z-index:-1;
+      overflow:hidden;
+    }
+
+    .star{
+      position:absolute;
+      width:2px;
+      height:2px;
+      background:white;
+      border-radius:50%;
+      animation:twinkle 2s infinite ease-in-out;
+    }
+
+    @keyframes twinkle{
+      0%,100%{
+        opacity:0.2;
+        transform:scale(1);
+      }
+      50%{
+        opacity:1;
+        transform:scale(1.8);
+      }
+    }
+
+    /* Top Bar */
+    .topbar{
+      width:100%;
+      padding:18px;
+      text-align:center;
+      font-size:28px;
+      font-weight:bold;
+      background:rgba(255,255,255,0.06);
+      backdrop-filter:blur(5px);
+      border-bottom:1px solid rgba(255,255,255,0.15);
+      letter-spacing:2px;
+    }
+
+    .container{
+      width:90%;
+      max-width:850px;
+      margin:35px auto;
+      display:flex;
+      flex-direction:column;
+      gap:25px;
+    }
+
+    /* Main Description */
+    .description{
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:18px;
+      padding:25px;
+      line-height:1.7;
+      font-size:17px;
+      box-shadow:0 0 20px rgba(255,255,255,0.05);
+    }
+
+    /* Notice Section */
+    .notice-wrapper{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+    }
+
+    .notice{
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:16px;
+      padding:20px;
+      transition:0.3s;
+    }
+
+    .notice:hover{
+      transform:translateY(-4px);
+      box-shadow:0 0 15px rgba(255,255,255,0.12);
+    }
+
+    .notice h3{
+      margin-bottom:12px;
+      font-size:20px;
+    }
+
+    .notice p{
+      color:#d0d0d0;
+      line-height:1.5;
+    }
+
+    /* Bottom Box */
+    .bottom-box{
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:18px;
+      padding:28px;
+      text-align:center;
+      font-size:18px;
+      line-height:1.7;
+      box-shadow:0 0 20px rgba(255,255,255,0.05);
+    }
+
+    @media(max-width:700px){
+      .notice-wrapper{
+        grid-template-columns:1fr;
+      }
+
+      .topbar{
+        font-size:24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Stars -->
+  <div class="stars" id="stars"></div>
+
+  <!-- Top Heading -->
+  <div class="topbar">
+    SUPPORT
+  </div>
+
+  <!-- Content -->
+  <div class="container">
+
+    <!-- Description -->
+    <div class="description">
+      Welcome to our support page. Here you can find updates, important notices,
+      and help regarding our services. We are committed to providing smooth and
+      reliable assistance whenever needed.
+    </div>
+
+    <!-- Notice Boxes -->
+    <div class="notice-wrapper">
+
+      <div class="notice">
+        <h3>Notice 1</h3>
+        <p>
+          Maintenance updates may occur during late night hours.
+          Some services could be temporarily unavailable.
+        </p>
+      </div>
+
+      <div class="notice">
+        <h3>Notice 2</h3>
+        <p>
+          Please keep your app updated to receive the latest features,
+          fixes, and security improvements.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Bottom Box -->
+    <div class="bottom-box">
+      Need more help? Contact our support team anytime for assistance,
+      feedback, or issue reporting.
+    </div>
+
+  </div>
+
+  <script>
+    const starsContainer = document.getElementById("stars");
+
+    for(let i = 0; i < 180; i++){
+      const star = document.createElement("div");
+      star.classList.add("star");
+
+      star.style.top = Math.random() * 100 + "%";
+      star.style.left = Math.random() * 100 + "%";
+
+      const size = Math.random() * 3 + 1;
+      star.style.width = size + "px";
+      star.style.height = size + "px";
+
+      star.style.animationDuration =
+        (Math.random() * 3 + 2) + "s";
+
+      star.style.animationDelay =
+        Math.random() * 5 + "s";
+
+      starsContainer.appendChild(star);
+    }
+  </script>
+
+</body>
+</html>")
 
 
 def message_admin(update, context):
