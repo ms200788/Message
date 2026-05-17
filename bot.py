@@ -2,7 +2,7 @@ import os
 import logging
 from queue import Queue
 
-from flask import Flask, request
+from flask import Flask, request, Response
 from telegram import Bot, Update, ParseMode
 from telegram.ext import (
     Dispatcher,
@@ -30,13 +30,19 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-if not BOT_TOKEN or not ADMIN_ID or not WEBHOOK_URL:
-    raise Exception("Missing ENV variables")
+if not BOT_TOKEN:
+    raise Exception("BOT_TOKEN missing")
+
+if not ADMIN_ID:
+    raise Exception("ADMIN_ID missing")
+
+if not WEBHOOK_URL:
+    raise Exception("WEBHOOK_URL missing")
 
 ADMIN_ID = int(ADMIN_ID)
 
 # ==================================================
-# INIT APP + BOT
+# FLASK + TELEGRAM INIT
 # ==================================================
 
 app = Flask(__name__)
@@ -52,7 +58,7 @@ dispatcher = Dispatcher(
 )
 
 # ==================================================
-# TEMP MEMORY (ANTI DUPLICATE)
+# ANTI DUPLICATE
 # ==================================================
 
 processed_messages = set()
@@ -66,8 +72,14 @@ HTML_PAGE = """
 <html lang="en">
 
 <head>
+
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
   <title>Support Page</title>
 
   <style>
@@ -76,7 +88,7 @@ HTML_PAGE = """
       margin:0;
       padding:0;
       box-sizing:border-box;
-      font-family:Arial, sans-serif;
+      font-family:Arial,sans-serif;
     }
 
     body{
@@ -87,7 +99,7 @@ HTML_PAGE = """
       position:relative;
     }
 
-    /* Twinkling Stars */
+    /* STARS */
 
     .stars{
       position:fixed;
@@ -101,8 +113,6 @@ HTML_PAGE = """
 
     .star{
       position:absolute;
-      width:2px;
-      height:2px;
       background:white;
       border-radius:50%;
       animation:twinkle 2s infinite ease-in-out;
@@ -122,7 +132,7 @@ HTML_PAGE = """
 
     }
 
-    /* Top Bar */
+    /* TOP BAR */
 
     .topbar{
       width:100%;
@@ -136,6 +146,8 @@ HTML_PAGE = """
       letter-spacing:2px;
     }
 
+    /* MAIN CONTAINER */
+
     .container{
       width:90%;
       max-width:850px;
@@ -145,7 +157,7 @@ HTML_PAGE = """
       gap:25px;
     }
 
-    /* Description */
+    /* DESCRIPTION */
 
     .description{
       background:rgba(255,255,255,0.06);
@@ -157,13 +169,15 @@ HTML_PAGE = """
       box-shadow:0 0 20px rgba(255,255,255,0.05);
     }
 
-    /* Notice Section */
+    /* NOTICE WRAPPER */
 
     .notice-wrapper{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:20px;
     }
+
+    /* NOTICE BOX */
 
     .notice{
       background:rgba(255,255,255,0.05);
@@ -188,7 +202,7 @@ HTML_PAGE = """
       line-height:1.5;
     }
 
-    /* Bottom Box */
+    /* BOTTOM BOX */
 
     .bottom-box{
       background:rgba(255,255,255,0.06);
@@ -200,6 +214,8 @@ HTML_PAGE = """
       line-height:1.7;
       box-shadow:0 0 20px rgba(255,255,255,0.05);
     }
+
+    /* MOBILE */
 
     @media(max-width:700px){
 
@@ -219,55 +235,73 @@ HTML_PAGE = """
 
 <body>
 
-  <!-- Stars -->
+  <!-- STARS -->
   <div class="stars" id="stars"></div>
 
-  <!-- Top Bar -->
+  <!-- TOP BAR -->
   <div class="topbar">
     SUPPORT
   </div>
 
-  <!-- Main Content -->
+  <!-- CONTENT -->
   <div class="container">
 
-    <!-- Description -->
+    <!-- DESCRIPTION -->
     <div class="description">
-      Welcome to our support page. Here you can find updates,
-      important notices, and help regarding our services.
-      We are committed to providing smooth and reliable
-      assistance whenever needed.
+
+      Welcome to our support page.
+
+      Here you can find updates,
+      notices, and help regarding our services.
+
+      We are committed to providing smooth
+      and reliable assistance whenever needed.
+
     </div>
 
-    <!-- Notice Boxes -->
+    <!-- NOTICE BOXES -->
     <div class="notice-wrapper">
 
       <div class="notice">
+
         <h3>Notice 1</h3>
+
         <p>
-          Maintenance updates may occur during late night hours.
+          Maintenance updates may occur during
+          late night hours.
+
           Some services could be temporarily unavailable.
         </p>
+
       </div>
 
       <div class="notice">
+
         <h3>Notice 2</h3>
+
         <p>
-          Please keep your app updated to receive the latest
-          features, fixes, and security improvements.
+          Please keep your app updated
+          to receive the latest features,
+          fixes, and security improvements.
         </p>
+
       </div>
 
     </div>
 
-    <!-- Bottom Box -->
+    <!-- BOTTOM BOX -->
     <div class="bottom-box">
-      Need more help? Contact our support team anytime
+
+      Need more help?
+
+      Contact our support team anytime
       for assistance, feedback, or issue reporting.
+
     </div>
 
   </div>
 
-  <!-- Stars Script -->
+  <!-- STARS SCRIPT -->
 
   <script>
 
@@ -313,25 +347,20 @@ HTML_PAGE = """
 """
 
 # ==================================================
-# COMMANDS
+# START COMMAND
 # ==================================================
 
 def start(update, context):
 
-    file_name = "support.html"
+    support_link = f"{WEBHOOK_URL}/support"
 
-    with open(file_name, "w", encoding="utf-8") as f:
-        f.write(HTML_PAGE)
+    update.message.reply_text(
+        f"🌐 Support Page:\n{support_link}"
+    )
 
-    with open(file_name, "rb") as f:
-
-        context.bot.send_document(
-            chat_id=update.effective_chat.id,
-            document=f,
-            filename="support.html",
-            caption="✅ Support HTML Page"
-        )
-
+# ==================================================
+# MESSAGE ADMIN
+# ==================================================
 
 def message_admin(update, context):
 
@@ -343,7 +372,7 @@ def message_admin(update, context):
     if not msg.text:
         return
 
-    # Prevent duplicates
+    # prevent duplicate
     if msg.message_id in processed_messages:
         return
 
@@ -358,10 +387,13 @@ def message_admin(update, context):
         first_name + " " + last_name
     ).strip()
 
-    # User Display
+    # display username or clickable name
     if user.username:
+
         user_display = f"@{user.username}"
+
     else:
+
         user_display = (
             f"<a href='tg://user?id={user.id}'>"
             f"{full_name}"
@@ -377,7 +409,7 @@ def message_admin(update, context):
 
         msg.reply_text(
             "Send message like:\n"
-            "/message_admin your text"
+            "/message_admin hello"
         )
 
         return
@@ -399,6 +431,9 @@ def message_admin(update, context):
         "✅ Message sent to admin!"
     )
 
+# ==================================================
+# REPLY COMMAND
+# ==================================================
 
 def reply(update, context):
 
@@ -416,6 +451,7 @@ def reply(update, context):
         return
 
     try:
+
         user_id = int(args[0])
 
     except:
@@ -472,6 +508,18 @@ def home():
 
     return "🚀 Bot is running!"
 
+# SUPPORT PAGE
+
+@app.route("/support")
+def support_page():
+
+    return Response(
+        HTML_PAGE,
+        mimetype="text/html"
+    )
+
+# TELEGRAM WEBHOOK
+
 @app.route(
     f"/{BOT_TOKEN}",
     methods=["POST"]
@@ -525,7 +573,7 @@ def setup_webhook():
         )
 
 # ==================================================
-# LOCAL RUN
+# RUN
 # ==================================================
 
 if __name__ == "__main__":
