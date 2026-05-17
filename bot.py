@@ -4,12 +4,16 @@ from queue import Queue
 
 from flask import Flask, request
 from telegram import Bot, Update, ParseMode
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
+from telegram.ext import (
+    Dispatcher,
+    CommandHandler,
+    MessageHandler,
+    Filters
+)
 
-
-# =========================
+# ==================================================
 # LOGGING
-# =========================
+# ==================================================
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -18,25 +22,22 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-# =========================
+# ==================================================
 # ENV VARIABLES
-# =========================
+# ==================================================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 if not BOT_TOKEN or not ADMIN_ID or not WEBHOOK_URL:
-
     raise Exception("Missing ENV variables")
 
 ADMIN_ID = int(ADMIN_ID)
 
-
-# =========================
+# ==================================================
 # INIT APP + BOT
-# =========================
+# ==================================================
 
 app = Flask(__name__)
 
@@ -44,30 +45,33 @@ bot = Bot(token=BOT_TOKEN)
 
 update_queue = Queue()
 
-dispatcher = Dispatcher(bot, update_queue, use_context=True)
+dispatcher = Dispatcher(
+    bot,
+    update_queue,
+    use_context=True
+)
 
-
-# =========================
+# ==================================================
 # TEMP MEMORY (ANTI DUPLICATE)
-# =========================
+# ==================================================
 
 processed_messages = set()
 
+# ==================================================
+# HTML PAGE
+# ==================================================
 
-# =========================
-# COMMANDS
-# =========================
-
-def start(update, context):
-
-    update.message.reply_text("<!DOCTYPE html>
+HTML_PAGE = """
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Support Page</title>
 
   <style>
+
     *{
       margin:0;
       padding:0;
@@ -84,6 +88,7 @@ def start(update, context):
     }
 
     /* Twinkling Stars */
+
     .stars{
       position:fixed;
       width:100%;
@@ -104,17 +109,21 @@ def start(update, context):
     }
 
     @keyframes twinkle{
+
       0%,100%{
         opacity:0.2;
         transform:scale(1);
       }
+
       50%{
         opacity:1;
         transform:scale(1.8);
       }
+
     }
 
     /* Top Bar */
+
     .topbar{
       width:100%;
       padding:18px;
@@ -136,7 +145,8 @@ def start(update, context):
       gap:25px;
     }
 
-    /* Main Description */
+    /* Description */
+
     .description{
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.12);
@@ -148,6 +158,7 @@ def start(update, context):
     }
 
     /* Notice Section */
+
     .notice-wrapper{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -178,6 +189,7 @@ def start(update, context):
     }
 
     /* Bottom Box */
+
     .bottom-box{
       background:rgba(255,255,255,0.06);
       border:1px solid rgba(255,255,255,0.12);
@@ -190,6 +202,7 @@ def start(update, context):
     }
 
     @media(max-width:700px){
+
       .notice-wrapper{
         grid-template-columns:1fr;
       }
@@ -197,27 +210,32 @@ def start(update, context):
       .topbar{
         font-size:24px;
       }
+
     }
+
   </style>
+
 </head>
+
 <body>
 
   <!-- Stars -->
   <div class="stars" id="stars"></div>
 
-  <!-- Top Heading -->
+  <!-- Top Bar -->
   <div class="topbar">
     SUPPORT
   </div>
 
-  <!-- Content -->
+  <!-- Main Content -->
   <div class="container">
 
     <!-- Description -->
     <div class="description">
-      Welcome to our support page. Here you can find updates, important notices,
-      and help regarding our services. We are committed to providing smooth and
-      reliable assistance whenever needed.
+      Welcome to our support page. Here you can find updates,
+      important notices, and help regarding our services.
+      We are committed to providing smooth and reliable
+      assistance whenever needed.
     </div>
 
     <!-- Notice Boxes -->
@@ -234,8 +252,8 @@ def start(update, context):
       <div class="notice">
         <h3>Notice 2</h3>
         <p>
-          Please keep your app updated to receive the latest features,
-          fixes, and security improvements.
+          Please keep your app updated to receive the latest
+          features, fixes, and security improvements.
         </p>
       </div>
 
@@ -243,25 +261,40 @@ def start(update, context):
 
     <!-- Bottom Box -->
     <div class="bottom-box">
-      Need more help? Contact our support team anytime for assistance,
-      feedback, or issue reporting.
+      Need more help? Contact our support team anytime
+      for assistance, feedback, or issue reporting.
     </div>
 
   </div>
 
+  <!-- Stars Script -->
+
   <script>
-    const starsContainer = document.getElementById("stars");
+
+    const starsContainer =
+      document.getElementById("stars");
 
     for(let i = 0; i < 180; i++){
-      const star = document.createElement("div");
+
+      const star =
+        document.createElement("div");
+
       star.classList.add("star");
 
-      star.style.top = Math.random() * 100 + "%";
-      star.style.left = Math.random() * 100 + "%";
+      star.style.top =
+        Math.random() * 100 + "%";
 
-      const size = Math.random() * 3 + 1;
-      star.style.width = size + "px";
-      star.style.height = size + "px";
+      star.style.left =
+        Math.random() * 100 + "%";
+
+      const size =
+        Math.random() * 3 + 1;
+
+      star.style.width =
+        size + "px";
+
+      star.style.height =
+        size + "px";
 
       star.style.animationDuration =
         (Math.random() * 3 + 2) + "s";
@@ -270,21 +303,47 @@ def start(update, context):
         Math.random() * 5 + "s";
 
       starsContainer.appendChild(star);
+
     }
+
   </script>
 
 </body>
-</html>")
+</html>
+"""
+
+# ==================================================
+# COMMANDS
+# ==================================================
+
+def start(update, context):
+
+    file_name = "support.html"
+
+    with open(file_name, "w", encoding="utf-8") as f:
+        f.write(HTML_PAGE)
+
+    with open(file_name, "rb") as f:
+
+        context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=f,
+            filename="support.html",
+            caption="✅ Support HTML Page"
+        )
 
 
 def message_admin(update, context):
 
     msg = update.message
 
-    if not msg or not msg.text:
+    if not msg:
         return
 
-    # prevent duplicate messages
+    if not msg.text:
+        return
+
+    # Prevent duplicates
     if msg.message_id in processed_messages:
         return
 
@@ -292,22 +351,35 @@ def message_admin(update, context):
 
     user = msg.from_user
 
-    # ===== USER DISPLAY LOGIC =====
     first_name = user.first_name or ""
     last_name = user.last_name or ""
-    full_name = (first_name + " " + last_name).strip()
 
+    full_name = (
+        first_name + " " + last_name
+    ).strip()
+
+    # User Display
     if user.username:
-        # clickable username
         user_display = f"@{user.username}"
     else:
-        # clickable name using tg link
-        user_display = f"<a href='tg://user?id={user.id}'>{full_name}</a>"
+        user_display = (
+            f"<a href='tg://user?id={user.id}'>"
+            f"{full_name}"
+            f"</a>"
+        )
 
-    text = msg.text.replace("/message_admin", "").strip()
+    text = msg.text.replace(
+        "/message_admin",
+        ""
+    ).strip()
 
     if not text:
-        msg.reply_text("Send message like:\n/message_admin your text")
+
+        msg.reply_text(
+            "Send message like:\n"
+            "/message_admin your text"
+        )
+
         return
 
     forward_text = (
@@ -323,7 +395,9 @@ def message_admin(update, context):
         disable_web_page_preview=True
     )
 
-    msg.reply_text("✅ Message sent to admin!")
+    msg.reply_text(
+        "✅ Message sent to admin!"
+    )
 
 
 def reply(update, context):
@@ -334,86 +408,129 @@ def reply(update, context):
     args = context.args
 
     if len(args) < 2:
-        update.message.reply_text("Usage:\n/reply user_id message")
+
+        update.message.reply_text(
+            "Usage:\n/reply user_id message"
+        )
+
         return
 
     try:
         user_id = int(args[0])
+
     except:
-        update.message.reply_text("Invalid user ID")
+
+        update.message.reply_text(
+            "Invalid user ID"
+        )
+
         return
 
     text = " ".join(args[1:])
 
-    context.bot.send_message(chat_id=user_id, text=text)
+    context.bot.send_message(
+        chat_id=user_id,
+        text=text
+    )
 
-    update.message.reply_text("✅ Reply sent!")
+    update.message.reply_text(
+        "✅ Reply sent!"
+    )
 
-
-# =========================
+# ==================================================
 # HANDLERS
-# =========================
+# ==================================================
 
-dispatcher.add_handler(CommandHandler("start", start))
-dispatcher.add_handler(CommandHandler("message_admin", message_admin))
-dispatcher.add_handler(CommandHandler("reply", reply))
+dispatcher.add_handler(
+    CommandHandler("start", start)
+)
 
-dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, message_admin))
+dispatcher.add_handler(
+    CommandHandler(
+        "message_admin",
+        message_admin
+    )
+)
 
+dispatcher.add_handler(
+    CommandHandler("reply", reply)
+)
 
-# =========================
+dispatcher.add_handler(
+    MessageHandler(
+        Filters.text & ~Filters.command,
+        message_admin
+    )
+)
+
+# ==================================================
 # ROUTES
-# =========================
+# ==================================================
 
 @app.route("/")
 def home():
 
     return "🚀 Bot is running!"
 
-
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+@app.route(
+    f"/{BOT_TOKEN}",
+    methods=["POST"]
+)
 def webhook():
 
     try:
 
         data = request.get_json(force=True)
 
-        update = Update.de_json(data, bot)
+        update = Update.de_json(
+            data,
+            bot
+        )
 
         dispatcher.process_update(update)
 
     except Exception as e:
 
-        logger.error(f"Error processing update: {e}")
+        logger.error(
+            f"Error processing update: {e}"
+        )
 
     return "ok"
 
-
-# =========================
+# ==================================================
 # SET WEBHOOK
-# =========================
+# ==================================================
 
 @app.before_first_request
 def setup_webhook():
 
     try:
 
-        webhook_url = f"{WEBHOOK_URL}/{BOT_TOKEN}"
+        webhook_url = (
+            f"{WEBHOOK_URL}/{BOT_TOKEN}"
+        )
 
         bot.delete_webhook()
+
         bot.set_webhook(webhook_url)
 
-        logger.info(f"Webhook set to: {webhook_url}")
+        logger.info(
+            f"Webhook set to: {webhook_url}"
+        )
 
     except Exception as e:
 
-        logger.error(f"Webhook setup failed: {e}")
+        logger.error(
+            f"Webhook setup failed: {e}"
+        )
 
-
-# =========================
+# ==================================================
 # LOCAL RUN
-# =========================
+# ==================================================
 
 if __name__ == "__main__":
 
-    app.run(host="0.0.0.0", port=10000)
+    app.run(
+        host="0.0.0.0",
+        port=10000
+    )
